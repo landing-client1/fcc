@@ -1,0 +1,77 @@
+#!/bin/bash
+
+bc_args=()
+src_args=()
+dest_arg=''
+basic_opt='-mem2reg -simplifycfg -simplifycfg-sink-common=false -instcombine -tailcallelim -loop-simplify -lcssa -licm -loop-unswitch -globalopt -instcombine -ipsccp -gvn -dse -adce -loop-simplify -lcssa -indvars -loop-deletion -instcombine -indvars'
+
+while [[ $# -gt 0 ]]; do
+	case $1 in 
+		-*)
+			shift
+			;;
+		*.bc)
+			dest_arg=("$1")
+			shift
+			;;
+		*.c|*.cc|*.cpp)
+			src_args+=("$1")
+			shift
+			;;
+		*)
+			echo "Please do not specify anything else than src and dest file name"
+			exit
+			;;
+	esac
+done
+
+echo -n "Linking source files..."
+rm -f *.bc
+
+if [[ x${dest_arg} = x ]]; then
+	dest_arg='benchmark.plain.bc'
+fi
+
+if [[ ${#src_args[@]} -gt 0 ]]; then
+	for src in ${src_args[@]}; do
+		clang -O1 -g -c -emit-llvm -Xclang -disable-llvm-passes ${src} -o ${src%.*}.bc
+		opt ${basic_opt} ${src%.*}.bc -o ${src%.*}.bc
+	done
+else
+	c_count=$(ls -l *.c 2>/dev/null | wc -l)
+	cc_count=$(ls -l *.cc 2>/dev/null | wc -l)
+	cpp_count=$(ls -l *.cpp 2>/dev/null | wc -l)
+
+	if [[ $c_count != 0 ]]; then
+		for src in *.c; do
+			clang -O1 -g -c -emit-llvm -Xclang -disable-llvm-passes ${src} -o ${src%.*}.bc
+			opt ${basic_opt} ${src%.*}.bc -o ${src%.*}.bc
+		done
+	fi
+
+	if [[ $cc_count != 0 ]]; then
+		for src in *.cc; do
+			clang -O1 -g -c -emit-llvm -Xclang -disable-llvm-passes ${src} -o ${src%.*}.bc
+			opt ${basic_opt} ${src%.*}.bc -o ${src%.*}.bc
+		done
+	fi
+
+	if [[ $cpp_count != 0 ]]; then
+		for src in *.cpp; do
+			clang -O1 -g -c -emit-llvm -Xclang -disable-llvm-passes ${src} -o ${src%.*}.bc
+			opt ${basic_opt} ${src%.*}.bc -o ${src%.*}.bc
+		done
+	fi
+fi
+
+for bc in *.bc; do
+	bc_args+=${bc}
+	bc_args+=" "
+done
+
+llvm-link ${bc_args[*]} -o ${dest_arg} 
+echo Done
+
+bc_args=()
+src_args=()
+dest_arg=''

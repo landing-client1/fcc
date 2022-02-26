@@ -1,0 +1,126 @@
+#!/bin/bash
+
+src_args=()
+opt_args=()
+src_files=()
+
+while [[ $# -gt 0 ]]; do
+	case $1 in
+		-e|-edge-prof)
+			EDGE_PROFILE=true
+			shift
+			;;
+		-l|-loop-prof)
+			LOOP_PROFILE=true
+			shift
+			;;
+		-a|-lamp-prof)
+			LAMP_PROFILE=true
+			shift
+			;;
+		-s|-spec-prof)
+			SPEC_PROFILE=true
+			shift
+			;;
+		-p|-ftree-paralellize)
+			FIUGGI_PAR=true
+			shift
+			;;
+		-*)
+			opt_args+=("$1")
+			shift
+			;;
+		*)
+			src_args+=("$1")
+			shift
+			;;
+	esac
+done
+
+edge_profile(){
+	opt -mem2reg -simplifycfg -simplifycfg-sink-common=false -instcombine -tailcallelim -loop-simplify -lcssa -licm -loop-unswitch -globalopt -instcombine -ipsccp -gvn -dse -adce -loop-simplify -lcssa -indvars -loop-deletion -instcombine -indvars benchmark.plain.bc -o benchmark.plain.opt.bc
+	opt benchmark.plain.opt.bc -internalize -internalize-public-api-list=main -ipconstprop -ipsccp -deadargelim -o benchmark.plain.opt.internalized.bc
+	devirtualize benchmark.plain.opt.internalized.bc
+	cp benchmark.plain.opt.internalized.devirt.bc benchmark.hack.bc
+	opt -mem2reg -simplifycfg -simplifycfg-sink-common=false -instcombine -tailcallelim -loop-simplify -lcssa -licm -loop-unswitch -globalopt -instcombine -ipsccp -gvn -dse -adce -loop-simplify -lcssa -indvars -loop-deletion -instcombine -indvars benchmark.hack.bc -o benchmark.hack.opt.bc
+	opt benchmark.hack.opt.bc -o benchmark.hack.opt.named.bc -load ${LIBERTY_INSTALL_DIR}/lib/libMetadata.so -metadata-namer
+	cp benchmark.hack.opt.named.bc benchmark.hack2.bc
+	rm -f .edgeProf_OG.time .edgeProf_OG.out .edgeProf_OG.exe
+	opt -pgo-instr-gen -instrprof benchmark.hack2.bc -o tmp1.bc
+	clang++ -fprofile-generate tmp1.bc -lm -lstdc++ -o benchmark.edgeProf_OG.exe
+	rm -f tmp1.bc
+	LLVM_PROFILE_FILE=benchmark.edgeProf_OG.profraw ./benchmark.edgeProf_OG.exe ${PROFILEARGS} >rabbit11 2>&1
+	llvm-profdata merge benchmark.edgeProf_OG.profraw -output=benchmark.edgeProf_OG.out
+	rm -f benchmark.edgeProf_OG.profraw
+	cp benchmark.edgeProf_OG.out llvmprof.out
+	opt -block-freq -pgo-instr-use -pgo-test-profile-file=./llvmprof.out benchmark.hack2.bc -o benchmark.pgo.bc
+	rm -f llvmprof.out
+	rm -f loopProf_OG.time benchmark.loopProf_OG.out benchmark.loopProf_OG.exe
+	loop-profile benchmark.pgo.bc
+	mv benchmark.pgo.loopProf.exe benchmark.loopProf_OG.exe
+	./benchmark.loopProf_OG.exe ${PROFILEARGS} >rabbit22 2>&1
+	mv loopProf.out benchmark.loopProf_OG.out
+	rm -f lamp_OG.time benchmark.lamp_OG.out benchmark.lamp_OG.exe
+	lamp-profile benchmark.pgo.bc
+	mv benchmark.pgo.lamp.exe benchmark.lamp_OG.exe
+	./benchmark.lamp_OG.exe ${PROFILEARGS} >rabbit33 2>&1
+	cp result.lamp.profile benchmark.lamp_OG.out
+	cp benchmark.loopProf_OG.out loopProf.out
+	cp benchmark.lamp_OG.out result.lamp.profile
+	opt -load ${LIBERTY_INSTALL_DIR}/lib/libUtil.so -load ${NOELLE_INSTALL_DIR}/lib/libSCAFUtilities.so -load ${NOELLE_INSTALL_DIR}/lib/libSCAFUtilities.so -load ${NOELLE_INSTALL_DIR}/lib/libCudd.so -load ${NOELLE_INSTALL_DIR}/lib/libSvf.so -load ${NOELLE_INSTALL_DIR}/lib/libMemoryAnalysisModules.so -load ${LIBERTY_INSTALL_DIR}/lib/libLoopProf.so -load ${LIBERTY_INSTALL_DIR}/lib/libMetadata.so -load ${LIBERTY_INSTALL_DIR}/lib/libLAMPLoad.so -load ${LIBERTY_INSTALL_DIR}/lib/libLAMP.so -load ${LIBERTY_INSTALL_DIR}/lib/libRedux.so -load ${LIBERTY_INSTALL_DIR}/lib/libPointsToProfiler.so -load ${LIBERTY_INSTALL_DIR}/lib/libGraphAlgorithms.so -load ${NOELLE_INSTALL_DIR}/lib/AllocAA.so -load ${NOELLE_INSTALL_DIR}/lib/BasicUtilities.so -load ${NOELLE_INSTALL_DIR}/lib/LoopStructure.so -load ${NOELLE_INSTALL_DIR}/lib/TalkDown.so -load ${NOELLE_INSTALL_DIR}/lib/PDGAnalysis.so -load ${LIBERTY_INSTALL_DIR}/lib/libGraphAlgorithms.so -load ${NOELLE_INSTALL_DIR}/lib/Architecture.so -load ${NOELLE_INSTALL_DIR}/lib/HotProfiler.so -load ${NOELLE_INSTALL_DIR}/lib/Loops.so -load ${LIBERTY_INSTALL_DIR}/lib/libStrategy.so -load ${LIBERTY_INSTALL_DIR}/lib/libOrchestration.so -load ${LIBERTY_INSTALL_DIR}/lib/libSpeculation.so -load ${LIBERTY_INSTALL_DIR}/lib/libAggrInliner.so -lamp-inst-cnt -lamp-map-loop -lamp-load-profile -always-inline -aggr-inliner benchmark.hack2.bc -o benchmark.inlined.noopt.bc
+	opt -mem2reg -simplifycfg -simplifycfg-sink-common=false -instcombine -tailcallelim -loop-simplify -lcssa -licm -loop-unswitch -globalopt -instcombine -ipsccp -gvn -dse -adce -loop-simplify -lcssa -indvars -loop-deletion -instcombine -indvars benchmark.inlined.noopt.bc -o benchmark.inlined.bc
+	rm -f loopProf.out
+	cp benchmark.inlined.bc benchmark.pre_pgo.bc
+	rm -f benchmark.edgeProf.time benchmark.edgeProf.out benchmark.edgeProf.exe
+	opt -pgo-instr-gen -instrprof benchmark.pre_pgo.bc -o tmp1.bc
+	clang++ -fprofile-generate tmp1.bc -lm -lstdc++ -o benchmark.edgeProf.exe
+	rm -f tmp1.bc
+	LLVM_PROFILE_FILE=benchmark.profraw ./benchmark.edgeProf.exe ${PROFILEARGS} >rabbit1 2>&1
+	llvm-profdata merge benchmark.profraw -output=benchmark.edgeProf.out
+}
+
+loop_profile() {
+	cp benchmark.edgeProf.out llvmprof.out
+	opt -block-freq -pgo-instr-use -pgo-test-profile-file=./llvmprof.out benchmark.pre_pgo.bc -o benchmark.bc
+	opt -mem2reg -simplifycfg -simplifycfg-sink-common=false -instcombine -tailcallelim -loop-simplify -lcssa -licm -loop-unswitch -globalopt -instcombine -ipsccp -gvn -dse -adce -loop-simplify -lcssa -indvars -loop-deletion -instcombine -indvars -loop-simplify -indvars benchmark.bc -o benchmark.bc
+	opt benchmark.bc -o benchmark.bc -load ${LIBERTY_INSTALL_DIR}/lib/libDbgClean.so -dbg-clean
+	opt benchmark.bc -o benchmark.bc -load ${LIBERTY_INSTALL_DIR}/lib/libMetadata.so -metadata-namer
+	rm -f benchmark.loopProf.time benchmark.loopProf.out benchmark.loopProf.exe
+	loop-profile benchmark.bc
+	./benchmark.loopProf.exe ${PROFILEARGS} >rabbit2 2>&1
+	mv loopProf.out benchmark.loopProf.out
+}
+
+lamp_profile(){
+	rm -f benchmark.lamp.time benchmark.lamp.out benchmark.lamp.exe
+	lamp-profile benchmark.bc
+	./benchmark.lamp.exe ${PROFILEARGS} >rabbit3 2>&1
+	cp result.lamp.profile benchmark.lamp.out
+}
+
+spec_profile(){
+	rm -f benchmark.specpriv-profile.time benchmark.specpriv-profile.out benchmark.specpriv-profile.exe
+	specpriv-profile benchmark.bc
+	llc -O1 benchmark.specpriv-profile.bc -o benchmark.specpriv-profile.s
+	g++ -no-pie benchmark.specpriv-profile.s ${LIBERTY_INSTALL_DIR}/support/smtx/sw_queue.noinline.o ${LIBERTY_INSTALL_DIR}/lib/libspecprivprofruntime.a  -lrt -lpthread -o benchmark.specpriv-profile.exe
+	rm -f result.specpriv.profile.txt
+	/usr/bin/time --output=benchmark.specpriv-profile.time -f "%e" ./benchmark.specpriv-profile.exe ${PROFILEARGS} >rabbit4 2>&1
+	echo -n Waiting for profiler to write result file
+	for i in `seq 1 1200`; do echo -n .; if [ -r result.specpriv.profile.txt ]; then break; fi; sleep 1; done
+	echo done
+	cp result.specpriv.profile.txt benchmark.specpriv-profile.out
+}
+
+par_gen(){
+	cp benchmark.lamp.out result.lamp.profile
+	cp benchmark.loopProf.out loopProf.out
+	CG=1 collaborative-pipeline benchmark.bc
+}
+
+if [[ ${FIUGGI_PAR} = true ]]; then
+	edge_profile
+	loop_profile
+	lamp_profile
+	spec_profile
+	par_gen
+fi

@@ -1,0 +1,39 @@
+date
+2022年 02月 21日 星期一 16:15:08 CST
+rm -f benchmark.specpriv-profile.time benchmark.specpriv-profile.out benchmark.specpriv-profile.exe
+regressions-watchdog 21600  specpriv-instrument.time specpriv-profile benchmark.bc
+This profile might be incomplete: calling llvm.lifetime.start.p0i8 may introduce new AUs (see lib/PointsToProfiler/RecognizedExternalFunctions.h)
+This profile might be incomplete: calling llvm.lifetime.end.p0i8 may introduce new AUs (see lib/PointsToProfiler/RecognizedExternalFunctions.h)
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+922 bitcode-reader   - Number of Metadata records loaded
+ 47 bitcode-reader   - Number of MDStrings loaded
+  1 globalsmodref-aa - Number of functions that do not access memory
+  3 globalsmodref-aa - Number of functions without address taken
+  1 globalsmodref-aa - Number of functions that only read memory
+  1 malloc-profiler  - Num constant variables instrumented
+  5 malloc-profiler  - Num frees instrumented
+  1 malloc-profiler  - Num global variables instrumented
+ 16 malloc-profiler  - Num indeterminate-base instrumentations inserted
+  3 malloc-profiler  - Num mallocs instrumented
+  7 malloc-profiler  - Num alloca instructions or global variables/constants with alignment changed
+ 16 malloc-profiler  - Num pointer-residue instrumentations inserted
+  2 malloc-profiler  - Num stack variables instrumented
+  9 malloc-profiler  - Num value-predictor instrumentations inserted
+
+0.07user 0.00system 0:00.08elapsed 100%CPU (0avgtext+0avgdata 85640maxresident)k
+0inputs+64outputs (0major+2694minor)pagefaults 0swaps
+regressions-watchdog 21600  specpriv-lower.time llc -O3 benchmark.specpriv-profile.bc -o benchmark.specpriv-profile.s
+regressions-watchdog 21600  specpriv-link.time g++ -no-pie benchmark.specpriv-profile.s /data/public/test-suite/fcc-install/support/smtx/sw_queue.noinline.o /data/public/test-suite/fcc-install/lib/libspecprivprofruntime.a  -lrt -lpthread -o benchmark.specpriv-profile.exe
+date
+2022年 02月 21日 星期一 16:15:10 CST
+date
+2022年 02月 21日 星期一 16:15:10 CST
+rm -f result.specpriv.profile.txt
+/usr/bin/time --output=benchmark.specpriv-profile.time -f "%e" ./benchmark.specpriv-profile.exe 0 512 512  >rabbit4 2>&1
+Waiting for profiler to write result file..
+cp result.specpriv.profile.txt benchmark.specpriv-profile.out
+date
+2022年 02月 21日 星期一 16:16:34 CST

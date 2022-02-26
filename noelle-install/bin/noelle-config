@@ -1,0 +1,5 @@
+#!/bin/bash
+
+installDir=${ROOT}/noelle-install
+
+echo $installDir

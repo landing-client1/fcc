@@ -1,0 +1,36 @@
+date
+2022年 02月 21日 星期一 16:14:39 CST
+rm -f benchmark.lamp.time benchmark.lamp.out benchmark.lamp.exe
+regressions-watchdog 21600  lower-lamp.time lamp-profile benchmark.bc
+Running:  opt 
+            -load /data/public/test-suite/fcc-install/lib/libUtil.so 
+       -load /data/public/test-suite/noelle-install/lib/libSCAFUtilities.so
+       -load /data/public/test-suite/noelle-install/lib/libSvf.so
+       -load /data/public/test-suite/noelle-install/lib/libCudd.so
+       -load /data/public/test-suite/noelle-install/lib/libMemoryAnalysisModules.so
+       -load /data/public/test-suite/fcc-install/lib/libLoopProf.so
+       -load /data/public/test-suite/fcc-install/lib/libLAMPLoad.so 
+       -load /data/public/test-suite/fcc-install/lib/libLoopProf.so
+       -load /data/public/test-suite/fcc-install/lib/libLAMP.so 
+  
+    -lamp-insts 
+    -insert-lamp-profiling 
+    -lamp-view-switch enable 
+    -insert-lamp-loop-profiling 
+     
+    -insert-lamp-init 
+    benchmark.bc -o benchmark.lamp.bc
+
+llc -O3 benchmark.lamp.bc -o benchmark.lamp.s
+
+g++ -no-pie -O3 benchmark.lamp.s /data/public/test-suite/fcc-install/lib/liblamp_hooks.a -o benchmark.lamp.exe
+
+Created exe 'benchmark.lamp.exe', run to generate lamp profiling info
+date
+2022年 02月 21日 星期一 16:14:39 CST
+date
+2022年 02月 21日 星期一 16:14:39 CST
+regressions-watchdog 36000  benchmark.lamp.time ./benchmark.lamp.exe 0 512 512  >rabbit3 2>&1
+cp result.lamp.profile benchmark.lamp.out
+date
+2022年 02月 21日 星期一 16:15:08 CST

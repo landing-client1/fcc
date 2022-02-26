@@ -1,0 +1,47 @@
+cp benchmark.edgeProf.out llvmprof.out
+regressions-watchdog 21600  insert-edge-prof.time opt -block-freq -pgo-instr-use -pgo-test-profile-file=./llvmprof.out benchmark.pre_pgo.bc -o benchmark.bc
+regressions-watchdog 21600  simplify.time opt -mem2reg -simplifycfg -simplifycfg-sink-common=false -instcombine -tailcallelim -loop-simplify -lcssa -licm -loop-unswitch -globalopt -instcombine -ipsccp -gvn -dse -adce -loop-simplify -lcssa -indvars -loop-deletion -instcombine -indvars -loop-simplify -indvars benchmark.bc -o benchmark.bc
+regressions-watchdog 21600  benchmark.pre_pgo.bc.dbgCl.time opt benchmark.bc -o benchmark.bc -load /data/public/test-suite/fcc-install/lib/libDbgClean.so -dbg-clean
+regressions-watchdog 21600  benchmark.pre_pgo.bc.namer.time opt benchmark.bc -o benchmark.bc -load /data/public/test-suite/fcc-install/lib/libMetadata.so -metadata-namer
+date
+2022年 02月 21日 星期一 16:14:37 CST
+rm -f benchmark.loopProf.time benchmark.loopProf.out benchmark.loopProf.exe
+regressions-watchdog 21600  loop-profile.time loop-profile benchmark.bc
+Running:  opt  --debug-pass=Structure
+            -load /data/public/test-suite/fcc-install/lib/libUtil.so 
+       -load /data/public/test-suite/noelle-install/lib/libSCAFUtilities.so
+       -load /data/public/test-suite/noelle-install/lib/libSvf.so
+       -load /data/public/test-suite/noelle-install/lib/libCudd.so
+       -load /data/public/test-suite/noelle-install/lib/libMemoryAnalysisModules.so
+       -load /data/public/test-suite/fcc-install/lib/libLoopProf.so 
+  
+    -loop-prof
+    benchmark.bc -o benchmark.loopProf.bc
+Pass Arguments:  -targetlibinfo -tti -targetpassconfig -loop-prof -verify -write-bitcode
+Target Library Information
+Target Transform Information
+Target Pass Configuration
+  ModulePass Manager
+    LoopProf
+      Unnamed pass: implement Pass::getPassName()
+    FunctionPass Manager
+      Module Verifier
+    Bitcode Writer
+Pass Arguments:  -domtree -loops
+  FunctionPass Manager
+    Dominator Tree Construction
+    Natural Loop Information
+
+llc -O3 benchmark.loopProf.bc -o benchmark.loopProf.s
+
+g++ -no-pie -O3 benchmark.loopProf.s /data/public/test-suite/fcc-install/lib/libFullLoopProf.a -o benchmark.loopProf.exe
+
+Created exe 'benchmark.loopProf.exe', run to generate loop profiling info
+date
+2022年 02月 21日 星期一 16:14:37 CST
+date
+2022年 02月 21日 星期一 16:14:37 CST
+regressions-watchdog 36000  benchmark.loopProf.time ./benchmark.loopProf.exe 0 512 512  >rabbit2 2>&1
+mv loopProf.out benchmark.loopProf.out
+date
+2022年 02月 21日 星期一 16:14:38 CST
